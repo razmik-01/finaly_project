@@ -1,8 +1,10 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate, logout
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
+from django.contrib.auth.decorators import login_required
 from django.utils.timezone import now
-from .models import CustomUser, Product
+from .models import CustomUser, Product, Cart, Order
 from .utils import send_verification_email
+from .forms import UserProfileForm
 
 
 def user_login(request):
@@ -58,10 +60,83 @@ def verify_email(request):
 
 
 def home(request):
-    products = Product.objects.all()  # Получаем все товары
+    products = Product.objects.all()
     return render(request, 'shop/home.html', {'products': products, 'user': request.user})
 
 
 def custom_logout(request):
     logout(request)
     return redirect("home")
+
+
+@login_required
+def add_to_cart(request, product_id):
+    product = get_object_or_404(Product, id=product_id)
+    cart_item, created = Cart.objects.get_or_create(user=request.user, product=product)
+
+    if not created:
+        cart_item.quantity += 1
+        cart_item.save()
+
+    return redirect('home')
+
+
+@login_required
+def cart_view(request):
+    cart_items = Cart.objects.filter(user=request.user)
+    total_cost = sum(item.total_price() for item in cart_items)
+
+    return render(request, 'shop/cart.html', {'cart_items': cart_items, 'total_cost': total_cost})
+
+
+@login_required
+def remove_from_cart(request, cart_id):
+    cart_item = get_object_or_404(Cart, id=cart_id, user=request.user)
+
+    if cart_item.quantity > 1:
+        cart_item.quantity -= 1
+        cart_item.save()
+    else:
+        cart_item.delete()
+
+    return redirect('cart')
+
+
+@login_required
+def checkout_view(request):
+    cart_items = Cart.objects.filter(user=request.user)
+    total_cost = sum(item.total_price() for item in cart_items)
+
+    if request.method == 'POST':
+        order = Order.objects.create(
+            user=request.user,
+            cart_items=[{'product_id': item.product.id, 'quantity': item.quantity} for item in cart_items],
+            total_cost=total_cost
+        )
+
+        cart_items.delete()
+
+        return redirect('home')
+
+    return render(request, 'shop/checkout.html', {
+        'cart_items': cart_items,
+        'total_cost': total_cost
+    })
+
+
+def profile_view(request):
+    user = request.user
+
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            if 'password' in request.POST and request.POST['password']:
+                user.set_password(request.POST['password'])
+                user.save()
+                update_session_auth_hash(request, user)
+            return redirect('profile')
+    else:
+        form = UserProfileForm(instance=user)
+
+    return render(request, 'shop/profile.html', {'form': form})
