@@ -1,0 +1,23 @@
+<h2>Корзина</h2>
+
+
+<a href="{% url 'home' %}" style="padding: 10px; background-color: #ffcc00; color: black; text-decoration: none; border-radius: 5px;">
+    Вернуться на главную
+</a>
+
+{% if cart_items %}
+    <ul>
+        {% for item in cart_items %}
+            <li>
+                {{ item.product.name }} - {{ item.quantity }} шт. - {{ item.total_price }}$
+                <a href="{% url 'remove_from_cart' item.id %}">Удалить</a>
+            </li>
+        {% endfor %}
+    </ul>
+    <p>Общая стоимость: {{ total_cost }}$</p>
+    <a href="{% url 'checkout' %}" style="padding: 10px; background-color: #ffcc00; color: black; text-decoration: none; border-radius: 5px;">
+        Оплатить
+    </a>
+{% else %}
+    <p>Ваша корзина пуста</p>
+{% endif %}

@@ -1,0 +1,18 @@
+<h1>Оформление заказа</h1>
+
+{% if cart_items %}
+    <ul>
+        {% for item in cart_items %}
+            <li>{{ item.product.name }} - {{ item.quantity }} шт. - {{ item.total_price }} руб.</li>
+        {% endfor %}
+    </ul>
+
+    <h3>Итого к оплате: {{ total_cost }} </h3>
+
+    <form method="POST">
+        {% csrf_token %}
+        <button type="submit">Подтвердить заказ</button>
+    </form>
+{% else %}
+    <p>Ваша корзина пуста.</p>
+{% endif %}
